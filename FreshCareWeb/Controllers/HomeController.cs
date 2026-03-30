@@ -9,7 +9,7 @@ namespace FreshCareWeb.Controllers
     public class HomeController : Controller
     {
         // CHUỖI KẾT NỐI TỚI DATABASE CỦA BẠN
-        string connectionString = @"Data Source=Admin;Initial Catalog=FreshCareDB;Integrated Security=True;TrustServerCertificate=True;";
+        string connectionString = @"Data Source=.\SQLEXPRESS01;Initial Catalog=FreshCareDB;Integrated Security=True;TrustServerCertificate=True;";
 
         // ------------------------------------------------------------------
         // 1. HÀM CHẠY KHI MỞ TRANG CHỦ -> TẢI DỮ LIỆU 3 MÀU ĐỎ, CAM, XANH
