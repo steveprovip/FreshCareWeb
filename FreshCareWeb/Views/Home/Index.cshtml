@@ -1,119 +1,115 @@
-﻿@{
-    ViewData["Title"] = "Dashboard FreshCare";
+﻿@using FreshCareWeb.Controllers
+@{
+    ViewData["Title"] = "Quản lý Tồn kho FreshCare";
+    var hangQuaHan = ViewBag.HangQuaHan as List<LoHangViewModel>;
+    var hangCanDate = ViewBag.HangCanDate as List<LoHangViewModel>;
+    var hangAnToan = ViewBag.HangAnToan as List<LoHangViewModel>;
 }
+
 <div class="container mt-4">
-    <h2 class="text-center text-success mb-4 fw-bold">HỆ THỐNG QUẢN LÝ KHO FRESHCARE</h2>
+    <h2 class="text-center text-primary fw-bold mb-4">HỆ THỐNG QUẢN LÝ KHO FRESHCARE</h2>
 
     @if (TempData["Message"] != null)
     {
-        string alertType = TempData["MessageType"]?.ToString() ?? "info";
-        <div class="alert alert-@alertType fw-bold fs-4 text-center shadow border-2">
-            @TempData["Message"]
+        <div class="alert alert-@TempData["MessageType"] alert-dismissible fade show" role="alert">
+            <strong>Thông báo:</strong> @TempData["Message"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
 
-    <div class="row mb-4">
-        <div class="col-md-12 p-4 bg-white border border-success rounded shadow-sm">
-            <h4 class="text-success mb-3"><i class="bi bi-box-arrow-in-down"></i> Nghiệp Vụ Nhập Kho (Tạo Lô Hàng Mới)</h4>
-            <form asp-controller="Home" asp-action="NhapKho" method="post" class="row g-3">
-                <div class="col-md-2">
-                    <label class="fw-bold">Mã Lô Mới</label>
-                    <input type="text" name="MaLo" class="form-control" required placeholder="VD: LO_004" />
-                </div>
-                <div class="col-md-3">
-                    <label class="fw-bold">Chọn Mặt Hàng</label>
-                    <select name="MaSP" class="form-select" required>
-                        <option value="SP01">Cà chua (SP01)</option>
-                        <option value="SP02">Rau muống (SP02)</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="fw-bold">Ngày Sản Xuất</label>
-                    <input type="date" name="NgaySanXuat" class="form-control" required />
-                </div>
-                <div class="col-md-2">
-                    <label class="fw-bold">Hạn Sử Dụng</label>
-                    <input type="date" name="HanSuDung" class="form-control" required />
-                </div>
-                <div class="col-md-2">
-                    <label class="fw-bold">Số lượng (Kg)</label>
-                    <input type="number" step="any" name="SoLuongBanDau" class="form-control" required min="0.1" />
-                </div>
-                <div class="col-12 mt-3">
-                    <button type="submit" class="btn btn-success btn-lg">Lưu Phiếu Nhập Kho</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="row mb-5">
-        <div class="col-md-12 p-4 bg-light border border-primary rounded shadow-sm">
-            <h4 class="text-primary mb-3"><i class="bi bi-box-seam"></i> Nghiệp Vụ Xuất Kho Tự Động (FIFO)</h4>
-            <form asp-controller="Home" asp-action="XuatKhoFIFO" method="post" class="d-flex align-items-center">
-                <label class="me-2 fw-bold fs-5">Mặt hàng cần xuất:</label>
-                <select name="maSP" class="form-select w-25 me-4 fs-5" required>
-                    <option value="SP01">Cà chua (SP01)</option>
-                    <option value="SP02">Rau muống (SP02)</option>
-                </select>
-    
-                <label class="me-2 fw-bold fs-5">Khối lượng (Kg):</label>
-                <input type="number" step="any" name="soLuongCanXuat" class="form-control w-25 me-4 fs-5" required min="0.1" value="15" />
-                <button type="submit" class="btn btn-primary btn-lg">Xuất Kho Ngay</button>
-            </form>
-        </div>
-    </div>
-
     <div class="row">
-        <div class="col-md-6">
-            <div class="card border-danger mb-3 shadow">
-                <div class="card-header bg-danger text-white fw-bold fs-5">🚨 HÀNG QUÁ HẠN (YÊU CẦU XUẤT HỦY)</div>
-                <div class="card-body p-0">
-                    <table class="table table-hover text-center mb-0">
-                        <thead class="table-danger"><tr><th>Mã Lô</th><th>Sản phẩm</th><th>Hạn Sử Dụng</th><th>Tồn kho</th></tr></thead>
+        <div class="col-md-8">
+            <div class="card border-danger mb-4">
+                <div class="card-header bg-danger text-white fw-bold">
+                    🚨 HÀNG QUÁ HẠN SỬ DỤNG (YÊU CẦU HỦY)
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered text-center align-middle">
+                        <thead>
+                            <tr>
+                                <th>Mã Lô</th>
+                                <th>Sản Phẩm</th>
+                                <th>Hạn SD</th>
+                                <th>Tồn Kho</th>
+                                <th>Hành Động</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            @foreach (var item in ViewBag.HangQuaHan)
+                            @foreach (var item in hangQuaHan)
                             {
-                                <tr><td class="fw-bold">@item.MaLo</td><td>@item.MaSP</td><td class="text-danger fw-bold">@item.HanSuDung.ToString("dd/MM/yyyy")</td><td class="fw-bold">@item.SoLuongTon Kg</td></tr>
+                                <tr class="table-danger">
+                                    <td class="fw-bold">@item.MaLo</td>
+                                    <td>@item.TenSP<br><small class="text-muted">(@item.DonViTinh)</small></td>
+                                    <td>@item.HanSuDung.ToString("dd/MM/yyyy")<br><span class="badge bg-dark">Đã hết hạn</span></td>
+                                    <td class="text-danger fw-bold">@item.SoLuongTon @item.DonViTinh</td>
+                                    <td>
+                                        <form asp-action="HuyHang" method="post">
+                                            <input type="hidden" name="maLo" value="@item.MaLo" />
+                                            <button type="submit" class="btn btn-sm btn-dark" onclick="return confirm('Xác nhận xuất hủy lô hàng này để ghi nhận thất thoát?')">Xuất Hủy</button>
+                                        </form>
+                                    </td>
+                                </tr>
                             }
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
 
-        <div class="col-md-6">
-            <div class="card border-warning mb-3 shadow">
-                <div class="card-header bg-warning text-dark fw-bold fs-5">⚠️ HÀNG CẬN DATE (SẮP HẾT HẠN)</div>
-                <div class="card-body p-0">
-                    <table class="table table-hover text-center mb-0">
-                        <thead class="table-warning"><tr><th>Mã Lô</th><th>Sản phẩm</th><th>Hạn Sử Dụng</th><th>Tồn kho</th></tr></thead>
+            <div class="card border-warning mb-4">
+                <div class="card-header bg-warning text-dark fw-bold">
+                    ⚠️ HÀNG CẬN DATE (ĐANG ÁP DỤNG SALE)
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered text-center align-middle">
+                        <thead>
+                            <tr>
+                                <th>Sản Phẩm</th>
+                                <th>Hạn SD</th>
+                                <th>Tồn Kho</th>
+                                <th>Giá Bán</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            @foreach (var item in ViewBag.HangCanDate)
+                            @foreach (var item in hangCanDate)
                             {
-                                <tr><td class="fw-bold">@item.MaLo</td><td>@item.MaSP</td><td class="text-warning fw-bold">@item.HanSuDung.ToString("dd/MM/yyyy")</td><td class="fw-bold">@item.SoLuongTon Kg</td></tr>
+                                <tr class="table-warning">
+                                    <td class="fw-bold">@item.TenSP<br><small class="text-muted">Lô: @item.MaLo</small></td>
+                                    <td>Còn <b>@item.SoNgayConLai</b> ngày<br><small>@item.HanSuDung.ToString("dd/MM/yyyy")</small></td>
+                                    <td>@item.SoLuongTon @item.DonViTinh</td>
+                                    <td>
+                                        <del class="text-muted">@item.GiaBanGoc.ToString("N0")đ</del><br>
+                                        <span class="text-danger fw-bold fs-5">@item.GiaThucTe.ToString("N0")đ</span><br>
+                                        <span class="badge bg-danger">Sale @item.PhanTramSale%</span>
+                                    </td>
+                                </tr>
                             }
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class="row mt-3">
-        <div class="col-md-12">
-            <div class="card border-success shadow mb-5">
-                <div class="card-header bg-success text-white fw-bold fs-5">✅ KHO HÀNG AN TOÀN (CÒN HẠN DÀI)</div>
-                <div class="card-body p-0">
-                    <table class="table table-hover text-center mb-0">
-                        <thead class="table-success"><tr><th>Mã Lô</th><th>Sản phẩm</th><th>Hạn Sử Dụng</th><th>Tồn kho</th></tr></thead>
+            <div class="card border-success mb-4">
+                <div class="card-header bg-success text-white fw-bold">
+                    ✅ HÀNG AN TOÀN
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered text-center align-middle">
+                        <thead>
+                            <tr>
+                                <th>Sản Phẩm</th>
+                                <th>Hạn SD</th>
+                                <th>Tồn Kho</th>
+                                <th>Giá Bán</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            @foreach (var item in ViewBag.HangAnToan)
+                            @foreach (var item in hangAnToan)
                             {
                                 <tr>
-                                    <td class="fw-bold">@item.MaLo</td>
-                                    <td>@item.MaSP</td>
-                                    <td class="text-success fw-bold">@item.HanSuDung.ToString("dd/MM/yyyy")</td>
-                                    <td class="fw-bold">@item.SoLuongTon Kg</td>
+                                    <td class="fw-bold">@item.TenSP<br><small class="text-muted">Lô: @item.MaLo</small></td>
+                                    <td>Còn <b>@item.SoNgayConLai</b> ngày</td>
+                                    <td>@item.SoLuongTon @item.DonViTinh</td>
+                                    <td class="text-success fw-bold">@item.GiaThucTe.ToString("N0") đ</td>
                                 </tr>
                             }
                         </tbody>
@@ -121,5 +117,123 @@
                 </div>
             </div>
         </div>
+
+        <div class="col-md-4">
+            <div class="card border-primary mb-4">
+                <div class="card-header bg-primary text-white fw-bold">🛒 XUẤT KHO (BÁN HÀNG FIFO)</div>
+                <div class="card-body">
+                    <form asp-action="XuatKhoFIFO" method="post">
+                        <div class="mb-3">
+                            <label class="form-label">Chọn Sản Phẩm</label>
+                            <select name="maSP" class="form-select" required>
+                                <option value="SP01">Cà chua Hữu cơ</option>
+                                <option value="SP02">Rau muống</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Số Lượng Bán</label>
+                            <input type="number" name="soLuongCanXuat" class="form-control" step="0.1" min="0.1" required placeholder="VD: 2.5">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">Thanh Toán & Xuất Kho</button>
+                    </form>
+                </div>
+            </div>
+            <div class="card border-primary mb-4">
+                <div class="card-header bg-primary text-white fw-bold"><i class="fas fa-barcode"></i> QUÉT MÃ BÁN HÀNG (FIFO)</div>
+                <div class="card-body">
+                    <form asp-action="XuatKhoFIFO" method="post">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Mã Sản Phẩm (Quét mã)</label>
+                            <div class="input-group">
+                                <input type="text" id="inputMaSP" name="maSP" class="form-control border-primary" placeholder="Quét mã hoặc gõ (VD: SP01)" required autofocus autocomplete="off">
+                                <button type="button" class="btn btn-outline-primary" id="btnTimSP"><i class="fas fa-search"></i></button>
+                            </div>
+                            <small id="spInfo" class="text-success fw-bold mt-2 d-block"></small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Số Lượng Bán</label>
+                            <div class="input-group">
+                                <input type="number" id="inputSoLuong" name="soLuongCanXuat" class="form-control" required placeholder="0">
+                                <span class="input-group-text bg-light fw-bold" id="spDonVi">...</span>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold fs-5"><i class="fas fa-shopping-cart"></i> THANH TOÁN & XUẤT KHO</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card border-secondary">
+                <div class="card-header bg-secondary text-white fw-bold">📦 NHẬP LÔ HÀNG MỚI</div>
+                <div class="card-body">
+                    <form asp-action="NhapKho" method="post">
+                        <div class="mb-2">
+                            <input type="text" name="MaLo" class="form-control" placeholder="Mã Lô (VD: LO_004)" required>
+                        </div>
+                        <div class="mb-2">
+                            <select name="MaSP" class="form-select" required>
+                                <option value="SP01">Cà chua Hữu cơ</option>
+                                <option value="SP02">Rau muống</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Ngày SX</label>
+                            <input type="date" name="NgaySanXuat" class="form-control" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Hạn Sử Dụng</label>
+                            <input type="date" name="HanSuDung" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <input type="number" name="SoLuongBanDau" class="form-control" step="0.1" min="1" placeholder="Số lượng nhập" required>
+                        </div>
+                        <button type="submit" class="btn btn-secondary w-100 fw-bold">Lưu Phiếu Nhập</button>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function() {
+    // Sự kiện: Khi máy quét mã vạch quét xong (hoặc gõ tay rồi ấn Enter/Click ra ngoài)
+    $("#inputMaSP").on('change', function() {
+    let maSP = $(this).val().trim();
+    if(maSP.length > 0) {
+    $.ajax({
+    url: '/Home/GetProductInfo',
+    type: 'GET',
+    data: { maSP: maSP },
+    success: function(res) {
+    if(res.success) {
+    // Cập nhật tên SP và Tồn kho
+    $("#spInfo").html(`✅ <b>${res.tenSP}</b> | Tồn an toàn: ${res.tongTon} ${res.donViTinh}`).removeClass('text-danger').addClass('text-success');
+    // Cập nhật hiển thị đơn vị
+    $("#spDonVi").text(res.donViTinh);
+                            
+    // ĐIỀU CHỈNH NHẬP LƯỢNG THEO ĐƠN VỊ TÍNH
+    if(res.donViTinh.toLowerCase() === 'bó' || res.donViTinh.toLowerCase() === 'hộp') {
+    $("#inputSoLuong").attr('step', '1'); // Chỉ cho nhập số nguyên (1, 2, 3 bó)
+    $("#inputSoLuong").attr('placeholder', 'Nhập số nguyên (1, 2, 3...)');
+    } else {
+    $("#inputSoLuong").attr('step', '0.1'); // Cho phép nhập số thập phân (1.5 Kg)
+    $("#inputSoLuong").attr('placeholder', 'Nhập số thập phân (1.5, 2.0...)');
+    }
+                            
+    // Tự động nhảy con trỏ chuột xuống ô nhập số lượng
+    $("#inputSoLuong").focus();
+    } else {
+    $("#spInfo").html(`❌ ${res.message}`).removeClass('text-success').addClass('text-danger');
+    $("#spDonVi").text("...");
+    }
+    }
+    });
+    }
+    });
+        
+    // Hỗ trợ nút ấn tìm kiếm thủ công
+    $("#btnTimSP").click(function(){
+    $("#inputMaSP").trigger('change');
+    });
+    });
+</script>

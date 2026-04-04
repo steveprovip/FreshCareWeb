@@ -1,59 +1,107 @@
 using Microsoft.AspNetCore.Mvc;
-using FreshCareWeb.Models;
 using System.Data.SqlClient;
 using System.Collections.Generic;
 using System;
 
 namespace FreshCareWeb.Controllers
 {
+    // Lớp Model dùng để chứa dữ liệu truyền ra giao diện
+    public class LoHangViewModel
+    {
+        public string MaLo { get; set; }
+        public string MaSP { get; set; }
+        public string TenSP { get; set; }
+        public string DonViTinh { get; set; } // Kg, Bó, Hộp...
+        public string TenDM { get; set; }
+        public DateTime NgaySanXuat { get; set; }
+        public DateTime HanSuDung { get; set; }
+        public double SoLuongTon { get; set; }
+        public decimal GiaBanGoc { get; set; }
+        public int PhanTramSale { get; set; }
+        public string TrangThai { get; set; }
+        public int SoNgayConLai { get; set; }
+
+        // Tự động tính giá Sale: Nếu cận date có % sale thì giảm giá, không thì giữ nguyên
+        public decimal GiaThucTe => TrangThai == "Cận Date" ? GiaBanGoc * (100 - PhanTramSale) / 100 : GiaBanGoc;
+    }
+
     public class HomeController : Controller
     {
-        // CHUỖI KẾT NỐI TỚI DATABASE CỦA BẠN
-        string connectionString = @"Data Source=.\SQLEXPRESS01;Initial Catalog=FreshCareDB;Integrated Security=True;TrustServerCertificate=True;";
+        // 🚨 NHỚ ĐỔI TÊN SERVER CỦA BẠN Ở ĐÂY
+        string connectionString = @"Data Source=Admin;Initial Catalog=FreshCareDB;Integrated Security=True;TrustServerCertificate=True;";
 
-        // ------------------------------------------------------------------
-        // 1. HÀM CHẠY KHI MỞ TRANG CHỦ -> TẢI DỮ LIỆU 3 MÀU ĐỎ, CAM, XANH
-        // ------------------------------------------------------------------
+        // =========================================================
+        // 1. HÀM HIỂN THỊ TRANG CHỦ & CẬP NHẬT TRẠNG THÁI TỰ ĐỘNG
+        // =========================================================
         public IActionResult Index()
         {
-            List<LoHang> hangCanDate = new List<LoHang>();
-            List<LoHang> hangQuaHan = new List<LoHang>();
-            List<LoHang> hangAnToan = new List<LoHang>();
+            List<LoHangViewModel> hangQuaHan = new List<LoHangViewModel>();
+            List<LoHangViewModel> hangCanDate = new List<LoHangViewModel>();
+            List<LoHangViewModel> hangAnToan = new List<LoHangViewModel>();
 
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
                 conn.Open();
-                string query = "SELECT * FROM dbo.LoHang WHERE SoLuongTon > 0";
+                // Lấy các lô hàng chưa bị hủy và còn tồn kho
+                string query = @"
+                    SELECT l.MaLo, l.MaSP, s.TenSP, s.DonViTinh, s.GiaBan, d.TenDM, d.PhanTramSale, 
+                           l.NgaySanXuat, l.HanSuDung, l.SoLuongTon, l.TrangThai
+                    FROM LoHang l
+                    JOIN SanPham s ON l.MaSP = s.MaSP
+                    JOIN DanhMuc d ON s.MaDM = d.MaDM
+                    WHERE l.TrangThai != N'Đã Hủy' AND l.SoLuongTon > 0";
+
                 using (SqlCommand cmd = new SqlCommand(query, conn))
                 {
                     using (SqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            LoHang lo = new LoHang
+                            var lo = new LoHangViewModel
                             {
                                 MaLo = reader["MaLo"].ToString(),
                                 MaSP = reader["MaSP"].ToString(),
+                                TenSP = reader["TenSP"].ToString(),
+                                DonViTinh = reader["DonViTinh"].ToString(),
+                                TenDM = reader["TenDM"].ToString(),
+                                NgaySanXuat = Convert.ToDateTime(reader["NgaySanXuat"]),
                                 HanSuDung = Convert.ToDateTime(reader["HanSuDung"]),
-                                SoLuongTon = Convert.ToDouble(reader["SoLuongTon"])
+                                SoLuongTon = Convert.ToDouble(reader["SoLuongTon"]),
+                                GiaBanGoc = Convert.ToDecimal(reader["GiaBan"]),
+                                PhanTramSale = Convert.ToInt32(reader["PhanTramSale"]),
+                                TrangThai = reader["TrangThai"].ToString()
                             };
 
-                            TimeSpan thoiGianConLai = lo.HanSuDung.Date - DateTime.Now.Date;
+                            // TÍNH TOÁN VÀ CẬP NHẬT TRẠNG THÁI THEO THỜI GIAN THỰC
+                            TimeSpan thoiGian = lo.HanSuDung.Date - DateTime.Now.Date;
+                            lo.SoNgayConLai = thoiGian.Days;
 
-                            if (thoiGianConLai.Days < 0)
+                            if (lo.SoNgayConLai < 0)
                             {
-                                hangQuaHan.Add(lo); // Đỏ
+                                lo.TrangThai = "Quá Hạn";
+                                lo.SoNgayConLai = 0; // Giảng viên yêu cầu: Không để ngày âm
+                                hangQuaHan.Add(lo);
                             }
-                            else if (thoiGianConLai.Days <= 30)
+                            else if (lo.SoNgayConLai <= 30)
                             {
-                                hangCanDate.Add(lo); // Cam
+                                lo.TrangThai = "Cận Date";
+                                hangCanDate.Add(lo);
                             }
                             else
                             {
-                                hangAnToan.Add(lo); // Xanh
+                                lo.TrangThai = "An Toàn";
+                                hangAnToan.Add(lo);
                             }
                         }
                     }
+                }
+
+                // Cập nhật lại trạng thái "Quá Hạn" vào CSDL để khóa bán hàng
+                foreach (var item in hangQuaHan)
+                {
+                    SqlCommand updateCmd = new SqlCommand("UPDATE LoHang SET TrangThai = N'Quá Hạn' WHERE MaLo = @MaLo", conn);
+                    updateCmd.Parameters.AddWithValue("@MaLo", item.MaLo);
+                    updateCmd.ExecuteNonQuery();
                 }
             }
 
@@ -63,123 +111,98 @@ namespace FreshCareWeb.Controllers
             return View();
         }
 
-        // ------------------------------------------------------------------
-        // 2. HÀM CHẠY KHI BẤM NÚT "XUẤT KHO" -> THỰC THI THUẬT TOÁN FIFO
-        // ------------------------------------------------------------------
+        // =========================================================
+        // 2. HÀM HỦY HÀNG (KHÔNG XÓA CSDL - CHỈ ĐỔI TRẠNG THÁI)
+        // =========================================================
         [HttpPost]
-        public IActionResult XuatKhoFIFO(string maSP, double soLuongCanXuat)
+        public IActionResult HuyHang(string maLo)
         {
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
                 conn.Open();
+                // B1: Ghi vào bảng Phiếu Xuất (Loại: Hủy Hàng)
+                string insertPhieu = "INSERT INTO PhieuXuat (LoaiPhieu, GhiChu) OUTPUT INSERTED.MaPX VALUES (N'Hủy Hàng', N'Hủy lô hàng quá hạn/hỏng');";
+                SqlCommand cmdPhieu = new SqlCommand(insertPhieu, conn);
+                int maPX = (int)cmdPhieu.ExecuteScalar();
 
-                // BƯỚC 1: KIỂM TRA TỔNG TỒN KHO HỢP LỆ
-                string checkQuery = "SELECT SUM(SoLuongTon) FROM dbo.LoHang WHERE MaSP = @MaSP AND SoLuongTon > 0 AND HanSuDung >= @HomNay";
-                SqlCommand checkCmd = new SqlCommand(checkQuery, conn);
-                checkCmd.Parameters.AddWithValue("@MaSP", maSP);
-                checkCmd.Parameters.AddWithValue("@HomNay", DateTime.Now.Date);
+                // B2: Ghi chi tiết hủy và đổi trạng thái lô hàng
+                string huyQuery = @"
+                    INSERT INTO ChiTietXuat (MaPX, MaLo, SoLuong, GiaXuat, ThanhTien) 
+                    SELECT @MaPX, MaLo, SoLuongTon, 0, 0 FROM LoHang WHERE MaLo = @MaLo;
 
-                object result = checkCmd.ExecuteScalar();
-                double tongTonKho = result != DBNull.Value ? Convert.ToDouble(result) : 0;
+                    UPDATE LoHang SET TrangThai = N'Đã Hủy', SoLuongTon = 0 WHERE MaLo = @MaLo;";
 
-                if (soLuongCanXuat > tongTonKho)
-                {
-                    TempData["MessageType"] = "danger";
-                    TempData["Message"] = $"🚨 LỖI: Bạn muốn xuất {soLuongCanXuat}kg nhưng kho chỉ còn {tongTonKho}kg hàng an toàn. Giao dịch bị hủy!";
-                    return RedirectToAction("Index");
-                }
-
-                // BƯỚC 2: TIẾN HÀNH THUẬT TOÁN FIFO
-                string query = "SELECT * FROM dbo.LoHang WHERE MaSP = @MaSP AND SoLuongTon > 0 AND HanSuDung >= @HomNay ORDER BY HanSuDung ASC";
-                SqlCommand cmd = new SqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("@MaSP", maSP);
-                cmd.Parameters.AddWithValue("@HomNay", DateTime.Now.Date);
-
-                SqlDataReader reader = cmd.ExecuteReader();
-                List<LoHang> danhSachLo = new List<LoHang>();
-                while (reader.Read())
-                {
-                    danhSachLo.Add(new LoHang
-                    {
-                        MaLo = reader["MaLo"].ToString(),
-                        SoLuongTon = Convert.ToDouble(reader["SoLuongTon"])
-                    });
-                }
-                reader.Close();
-
-                double soLuongConLai = soLuongCanXuat;
-                foreach (var lo in danhSachLo)
-                {
-                    if (soLuongConLai <= 0) break;
-
-                    double tonKhoMoi = 0;
-                    if (lo.SoLuongTon >= soLuongConLai)
-                    {
-                        tonKhoMoi = lo.SoLuongTon - soLuongConLai;
-                        soLuongConLai = 0;
-                    }
-                    else
-                    {
-                        soLuongConLai -= lo.SoLuongTon;
-                        tonKhoMoi = 0;
-                    }
-
-                    string updateQuery = "UPDATE dbo.LoHang SET SoLuongTon = @TonMoi WHERE MaLo = @MaLo";
-                    using (SqlCommand cmdUpdate = new SqlCommand(updateQuery, conn))
-                    {
-                        cmdUpdate.Parameters.AddWithValue("@TonMoi", tonKhoMoi);
-                        cmdUpdate.Parameters.AddWithValue("@MaLo", lo.MaLo);
-                        cmdUpdate.ExecuteNonQuery();
-                    }
-                }
-
-                TempData["MessageType"] = "success";
-                TempData["Message"] = $"✅ THÀNH CÔNG: Đã xuất {soLuongCanXuat}kg hàng (Mã: {maSP}) theo đúng quy tắc FIFO!";
+                SqlCommand cmdHuy = new SqlCommand(huyQuery, conn);
+                cmdHuy.Parameters.AddWithValue("@MaPX", maPX);
+                cmdHuy.Parameters.AddWithValue("@MaLo", maLo); // <--- ĐÃ SỬA CHỮ cmd THÀNH cmdHuy
+                cmdHuy.ExecuteNonQuery();
             }
+            TempData["MessageType"] = "success";
+            TempData["Message"] = "Đã hủy lô hàng và lưu vào lịch sử, không xóa dữ liệu gốc!";
             return RedirectToAction("Index");
         }
-
-        // ------------------------------------------------------------------
-        // 3. HÀM CHẠY KHI BẤM NÚT "LƯU PHIẾU NHẬP KHO"
-        // ------------------------------------------------------------------
-        [HttpPost]
-        public IActionResult NhapKho(string MaLo, string MaSP, DateTime NgaySanXuat, DateTime HanSuDung, double SoLuongBanDau)
+        // =========================================================
+        // 3. HÀM BÁO CÁO THỐNG KÊ (DOANH THU & HÀNG HỦY)
+        // =========================================================
+        public IActionResult BaoCao()
         {
-            if (HanSuDung < NgaySanXuat)
-            {
-                TempData["MessageType"] = "danger";
-                TempData["Message"] = "🚨 LỖI: Hạn sử dụng không thể nhỏ hơn Ngày sản xuất!";
-                return RedirectToAction("Index");
-            }
+            decimal tongDoanhThu = 0;
+            double tongHangHuy = 0;
 
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
                 conn.Open();
-                string query = "INSERT INTO dbo.LoHang (MaLo, MaSP, NgaySanXuat, HanSuDung, SoLuongBanDau, SoLuongTon) VALUES (@MaLo, @MaSP, @NgaySanXuat, @HanSuDung, @SoLuongBanDau, @SoLuongTon)";
+                // Lấy tổng doanh thu (Chỉ cộng những phiếu Bán Hàng)
+                string queryDoanhThu = "SELECT SUM(ThanhTien) FROM ChiTietXuat ctx JOIN PhieuXuat px ON ctx.MaPX = px.MaPX WHERE px.LoaiPhieu = N'Bán Hàng'";
+                object resultDT = new SqlCommand(queryDoanhThu, conn).ExecuteScalar();
+                tongDoanhThu = resultDT != DBNull.Value ? Convert.ToDecimal(resultDT) : 0;
+
+                // Lấy tổng lượng hàng hủy
+                string queryHuy = "SELECT SUM(SoLuong) FROM ChiTietXuat ctx JOIN PhieuXuat px ON ctx.MaPX = px.MaPX WHERE px.LoaiPhieu = N'Hủy Hàng'";
+                object resultHuy = new SqlCommand(queryHuy, conn).ExecuteScalar();
+                tongHangHuy = resultHuy != DBNull.Value ? Convert.ToDouble(resultHuy) : 0;
+            }
+
+            ViewBag.TongDoanhThu = tongDoanhThu;
+            ViewBag.TongHangHuy = tongHangHuy;
+            return View();
+        }
+        // =========================================================
+        // 4. API DÀNH CHO MÁY QUÉT MÃ VẠCH (AJAX)
+        // =========================================================
+        [HttpGet]
+        public IActionResult GetProductInfo(string maSP)
+        {
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+                // Tìm thông tin sản phẩm và tính tổng tồn kho an toàn
+                string query = @"
+                    SELECT s.TenSP, s.DonViTinh, ISNULL(SUM(l.SoLuongTon), 0) AS TongTon
+                    FROM SanPham s
+                    LEFT JOIN LoHang l ON s.MaSP = l.MaSP AND l.TrangThai = N'An Toàn'
+                    WHERE s.MaSP = @MaSP
+                    GROUP BY s.TenSP, s.DonViTinh";
+
                 using (SqlCommand cmd = new SqlCommand(query, conn))
                 {
-                    cmd.Parameters.AddWithValue("@MaLo", MaLo);
-                    cmd.Parameters.AddWithValue("@MaSP", MaSP);
-                    cmd.Parameters.AddWithValue("@NgaySanXuat", NgaySanXuat);
-                    cmd.Parameters.AddWithValue("@HanSuDung", HanSuDung);
-                    cmd.Parameters.AddWithValue("@SoLuongBanDau", SoLuongBanDau);
-                    cmd.Parameters.AddWithValue("@SoLuongTon", SoLuongBanDau);
-
-                    try
+                    cmd.Parameters.AddWithValue("@MaSP", maSP);
+                    using (SqlDataReader reader = cmd.ExecuteReader())
                     {
-                        cmd.ExecuteNonQuery();
-                        TempData["MessageType"] = "success";
-                        TempData["Message"] = $"✅ NHẬP KHO THÀNH CÔNG: Đã tạo mã lô {MaLo} với số lượng {SoLuongBanDau}kg!";
-                    }
-                    catch (SqlException ex)
-                    {
-                        // In ra chính xác lỗi từ SQL Server để dễ bắt bệnh
-                        TempData["MessageType"] = "danger";
-                        TempData["Message"] = $"🚨 LỖI CSDL: {ex.Message}";
+                        if (reader.Read())
+                        {
+                            return Json(new
+                            {
+                                success = true,
+                                tenSP = reader["TenSP"].ToString(),
+                                donViTinh = reader["DonViTinh"].ToString(),
+                                tongTon = Convert.ToDouble(reader["TongTon"])
+                            });
+                        }
                     }
                 }
             }
-            return RedirectToAction("Index");
+            return Json(new { success = false, message = "Không tìm thấy mã sản phẩm này!" });
         }
     }
 }

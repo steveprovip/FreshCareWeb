@@ -1,0 +1,47 @@
+﻿@{
+    ViewData["Title"] = "Đăng Ký - FreshCare";
+    Layout = null; 
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Đăng ký - FreshCare</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+    <style>
+        body { background-color: #e9ecef; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .login-card { width: 450px; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); background: #fff; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="text-center mb-4">
+            <h2 class="text-success fw-bold">📝 ĐĂNG KÝ MỚI</h2>
+            <p class="text-muted">Tạo tài khoản nhân viên kho</p>
+        </div>
+
+        @if (ViewBag.Error != null)
+        {
+            <div class="alert alert-danger text-center">@ViewBag.Error</div>
+        }
+
+        <form asp-controller="Account" asp-action="Register" method="post">
+            <div class="mb-3">
+                <label class="form-label fw-bold">Họ và Tên</label>
+                <input type="text" name="hoten" class="form-control" placeholder="VD: Nguyễn Văn A" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">Tên đăng nhập</label>
+                <input type="text" name="taikhoan" class="form-control" placeholder="Tên tài khoản (viết liền không dấu)" required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold">Mật khẩu</label>
+                <input type="password" name="matkhau" class="form-control" placeholder="Nhập mật khẩu" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 fw-bold fs-5">ĐĂNG KÝ TÀI KHOẢN</button>
+            <div class="text-center mt-3">
+                <p>Đã có tài khoản? <a href="/Account/Login" class="text-primary fw-bold">Đăng nhập</a></p>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
